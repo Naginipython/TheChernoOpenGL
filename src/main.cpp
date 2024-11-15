@@ -3,6 +3,44 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 
+static unsigned int comple_shader(const std::string& source, unsigned int type) {
+  unsigned int id = glCreateShader(type);
+  const char* src = source.c_str();
+  glShaderSource(id, 1, &src, nullptr);
+  glCompileShader(id);
+
+  int result;
+  glGetShaderiv(id, GL_COMPILE_STATUS, &result);
+  if (result == GL_FALSE) {
+    int length;
+    glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
+    char* message = (char*)alloca(length * sizeof(char));
+    glGetShaderInfoLog(id, length, &length, message);
+    println("Failed to compile shader: " << message);
+    glDeleteShader(id);
+    return 0;
+  }
+
+  return id;
+}
+
+static unsigned int create_shader(const std::string& vertexShader, const std::string& fragmentShader) {
+  unsigned int program = glCreateProgram();
+  unsigned int vs = comple_shader(vertexShader, GL_VERTEX_SHADER);
+  unsigned int fs = comple_shader(fragmentShader, GL_FRAGMENT_SHADER);
+
+  glAttachShader(program, vs);
+  glAttachShader(program, fs);
+
+  glLinkProgram(program);
+  glValidateProgram(program);
+
+  glDeleteShader(vs);
+  glDeleteShader(fs);
+
+  return program;
+}
+
 int main(int argc, char* argv[]) {
   if (!glfwInit()) {
     println("Failed to initialize GLFW");
@@ -47,6 +85,23 @@ int main(int argc, char* argv[]) {
   // At index 0, 2 floats, not normalized, 2 floats to get to next vertex, 0 offset
   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
 
+  std::string vertexShader = 
+  R"(#version 330 core
+    layout(location = 0) in vec4 position;
+    void main() {
+      gl_Position = position;
+    }
+  )";
+  std::string fragmentShader = 
+  R"(#version 330 core
+    layout(location = 0) out vec4 color;
+    void main() {
+      color = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+  )";
+  unsigned int shader = create_shader(vertexShader, fragmentShader);
+  glUseProgram(shader);
+
   while (!glfwWindowShouldClose(window)) {
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -57,6 +112,7 @@ int main(int argc, char* argv[]) {
     glfwPollEvents();
   }
 
+  glDeleteProgram(shader);
   glfwTerminate();
   return 0;
 }
